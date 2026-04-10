@@ -1,0 +1,32 @@
+# Online PDF list for visual tests
+# Format: URL | Description
+# Lines starting with # are comments
+
+# arXiv papers (academic, various layouts)
+https://arxiv.org/pdf/1706.03762.pdf | Attention Is All You Need
+https://arxiv.org/pdf/2303.08774.pdf | GPT-4 Technical Report
+https://arxiv.org/pdf/1810.04805.pdf | BERT Paper
+https://arxiv.org/pdf/2005.14165.pdf | GPT-3 Paper
+https://arxiv.org/pdf/1512.03385.pdf | ResNet Paper
+https://arxiv.org/pdf/2010.11929.pdf | Vision Transformer
+https://arxiv.org/pdf/2106.09685.pdf | LoRA Paper
+https://arxiv.org/pdf/2302.13971.pdf | LLaMA Paper
+https://arxiv.org/pdf/2204.02311.pdf | PaLM Paper
+
+# Papers with complex layouts (tables, figures, equations)
+https://arxiv.org/pdf/1409.0473.pdf | Neural Machine Translation (Bahdanau)
+https://arxiv.org/pdf/1602.07261.pdf | Batch Renormalization
+https://arxiv.org/pdf/1412.6980.pdf | Adam Optimizer
+https://arxiv.org/pdf/1607.06450.pdf | Layer Normalization
+https://arxiv.org/pdf/1711.05101.pdf | Decoupled Weight Decay
+
+# Author's PDFs
+https://wqzhao.org/assets/zhao2024flexible.pdf | Flexible High-Level Synthesis Library for Linear Transformations
+https://wqzhao.org/assets/zheng2024enhancing.pdf | Enhancing mmWave Radar Sensing Using a Phased-MIMO Architecture
+https://wqzhao.org/assets/Wuqiong_Zhao_CV.pdf | CV Document
+https://wqzhao.org/assets/sdr-psk-fpga.pdf | Dual-Mode PSK Transceiver on SDR With FPGA
+https://wqzhao.org/assets/HDL_HLS_slides_20250510.pdf | HDL and HLS Slides
+
+# Non-Academic PDFs
+https://www.irs.gov/pub/irs-pdf/f990.pdf | IRS Form 990
+https://blink.ucsd.edu/_files/Registrar/calendars/2025-2026-AcadAdmin-Calendar.pdf | UCSD Academic Calendar 2025-2026

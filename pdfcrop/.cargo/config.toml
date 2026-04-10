@@ -1,0 +1,4 @@
+# Cargo configuration for pdfcrop
+
+# Note: getrandom WASM support is configured via the "wasm_js" feature in Cargo.toml
+# No additional rustflags needed for getrandom 0.3+

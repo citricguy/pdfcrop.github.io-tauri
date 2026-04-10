@@ -1,0 +1,22 @@
+# Session notes: keep the final report, ignore everything else.
+.notes/*
+!.notes/
+!.notes/windows-desktop-conversion-report.md
+
+# Frontend and Rust build outputs
+**/node_modules/
+**/dist/
+**/pkg/
+**/target/
+
+# Desktop packaging outputs
+*.pdb
+*.msi
+*-setup.exe
+PDFCrop.exe
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
