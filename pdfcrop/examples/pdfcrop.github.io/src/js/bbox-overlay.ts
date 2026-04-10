@@ -1,13 +1,12 @@
 /**
  * Interactive BBox Selection Overlay
  *
- * Handles mouse and touch interactions for drawing bounding boxes
- * on the PDF canvas overlay.
+ * Handles pointer interactions for drawing, resizing, and moving bounding
+ * boxes on the PDF canvas overlay.
  */
 
 import type { PDFViewer, PDFBBox } from './pdf-viewer';
 
-// Canvas Rectangle interface
 interface CanvasRect {
     x: number;
     y: number;
@@ -15,7 +14,14 @@ interface CanvasRect {
     height: number;
 }
 
-// BBox Overlay options
+interface CanvasPoint {
+    x: number;
+    y: number;
+}
+
+type InteractionMode = 'draw' | 'resize' | 'move' | null;
+type ResizeHandle = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
 interface BBoxOverlayOptions {
     onBboxChange?: ((bbox: PDFBBox | null) => void) | null;
     onBboxComplete?: ((bbox: PDFBBox | null) => void) | null;
@@ -27,46 +33,41 @@ interface BBoxOverlayOptions {
 
 export class BBoxOverlay {
     private overlayCanvas: HTMLCanvasElement;
-    private pdfCanvas: HTMLCanvasElement;  // For capturing events
     private pdfViewer: PDFViewer;
     private ctx: CanvasRenderingContext2D;
 
-    // Selection state
-    private isDrawing: boolean = false;
     private startX: number = 0;
     private startY: number = 0;
     private currentX: number = 0;
     private currentY: number = 0;
     private currentBbox: PDFBBox | null = null;
 
-    // Callbacks
+    private activePointerId: number | null = null;
+    private interactionMode: InteractionMode = null;
+    private activeHandle: ResizeHandle | null = null;
+    private interactionStartPoint: CanvasPoint | null = null;
+    private interactionStartRect: CanvasRect | null = null;
+
     private onBboxChange: ((bbox: PDFBBox | null) => void) | null;
     private onBboxComplete: ((bbox: PDFBBox | null) => void) | null;
 
-    // Style
     private strokeStyle: string;
     private fillStyle: string;
     private lineWidth: number;
     private lineDash: number[];
 
-    // Bound event handlers
-    private handleMouseDown: (e: MouseEvent) => void;
-    private handleMouseMove: (e: MouseEvent) => void;
-    private handleMouseUp: (e: MouseEvent) => void;
-    private handleTouchStart: (e: TouchEvent) => void;
-    private handleTouchMove: (e: TouchEvent) => void;
-    private handleTouchEnd: (e: TouchEvent) => void;
+    private readonly handleSize: number = 40;
+    private readonly handleHitSlop: number = 18;
+    private readonly handleInset: number = 20;
+
+    private handlePointerDown: (e: PointerEvent) => void;
+    private handlePointerMove: (e: PointerEvent) => void;
+    private handlePointerUp: (e: PointerEvent) => void;
+    private handlePointerCancel: (e: PointerEvent) => void;
 
     constructor(overlayCanvas: HTMLCanvasElement, pdfViewer: PDFViewer, options: BBoxOverlayOptions = {}) {
         this.overlayCanvas = overlayCanvas;
         this.pdfViewer = pdfViewer;
-
-        // Get the PDF canvas (sibling of overlay canvas)
-        const pdfCanvas = document.getElementById('pdf-canvas') as HTMLCanvasElement;
-        if (!pdfCanvas) {
-            throw new Error('PDF canvas not found');
-        }
-        this.pdfCanvas = pdfCanvas;
 
         const ctx = overlayCanvas.getContext('2d');
         if (!ctx) {
@@ -74,67 +75,45 @@ export class BBoxOverlay {
         }
         this.ctx = ctx;
 
-        // Callbacks
         this.onBboxChange = options.onBboxChange || null;
         this.onBboxComplete = options.onBboxComplete || null;
-
-        // Style
         this.strokeStyle = options.strokeStyle || '#0ea5e9';
         this.fillStyle = options.fillStyle || 'rgba(14, 165, 233, 0.15)';
         this.lineWidth = options.lineWidth || 2;
         this.lineDash = options.lineDash || [];
 
-        // Bind event handlers
-        this.handleMouseDown = this.onMouseDown.bind(this);
-        this.handleMouseMove = this.onMouseMove.bind(this);
-        this.handleMouseUp = this.onMouseUp.bind(this);
-        this.handleTouchStart = this.onTouchStart.bind(this);
-        this.handleTouchMove = this.onTouchMove.bind(this);
-        this.handleTouchEnd = this.onTouchEnd.bind(this);
+        this.handlePointerDown = this.onPointerDown.bind(this);
+        this.handlePointerMove = this.onPointerMove.bind(this);
+        this.handlePointerUp = this.onPointerUp.bind(this);
+        this.handlePointerCancel = this.onPointerCancel.bind(this);
 
-        // Enable by default
         this.enable();
     }
 
-    /**
-     * Enable bbox selection
-     */
     enable(): void {
-        // Only attach mousedown to PDF canvas
-        // Move and up events will be attached to document when drawing starts
-        this.pdfCanvas.addEventListener('mousedown', this.handleMouseDown);
-
-        // Touch events
-        this.pdfCanvas.addEventListener('touchstart', this.handleTouchStart, { passive: false });
-
-        // Change cursor on PDF canvas
-        this.pdfCanvas.style.cursor = 'crosshair';
+        this.overlayCanvas.style.pointerEvents = 'auto';
+        this.overlayCanvas.style.touchAction = 'none';
+        this.overlayCanvas.style.cursor = 'crosshair';
+        this.overlayCanvas.addEventListener('pointerdown', this.handlePointerDown);
+        this.overlayCanvas.addEventListener('pointermove', this.handlePointerMove);
+        this.overlayCanvas.addEventListener('pointerup', this.handlePointerUp);
+        this.overlayCanvas.addEventListener('pointercancel', this.handlePointerCancel);
     }
 
-    /**
-     * Disable bbox selection
-     */
     disable(): void {
-        // Remove mouse events from PDF canvas
-        this.pdfCanvas.removeEventListener('mousedown', this.handleMouseDown);
+        if (this.activePointerId !== null && this.overlayCanvas.hasPointerCapture(this.activePointerId)) {
+            this.overlayCanvas.releasePointerCapture(this.activePointerId);
+        }
 
-        // Remove document-level events (in case drawing is in progress)
-        document.removeEventListener('mousemove', this.handleMouseMove);
-        document.removeEventListener('mouseup', this.handleMouseUp);
-
-        // Remove touch events
-        this.pdfCanvas.removeEventListener('touchstart', this.handleTouchStart);
-        document.removeEventListener('touchmove', this.handleTouchMove);
-        document.removeEventListener('touchend', this.handleTouchEnd);
-
-        // Reset cursor
-        this.pdfCanvas.style.cursor = 'default';
+        this.overlayCanvas.removeEventListener('pointerdown', this.handlePointerDown);
+        this.overlayCanvas.removeEventListener('pointermove', this.handlePointerMove);
+        this.overlayCanvas.removeEventListener('pointerup', this.handlePointerUp);
+        this.overlayCanvas.removeEventListener('pointercancel', this.handlePointerCancel);
+        this.overlayCanvas.style.cursor = 'default';
+        this.resetInteraction();
     }
 
-    /**
-     * Get mouse position relative to canvas (unclamped - allows free movement)
-     */
-    getCanvasCoordinates(event: MouseEvent): { x: number; y: number } {
+    private getPointerCoordinates(event: PointerEvent): CanvasPoint {
         const rect = this.overlayCanvas.getBoundingClientRect();
         return {
             x: event.clientX - rect.left,
@@ -142,159 +121,295 @@ export class BBoxOverlay {
         };
     }
 
-    /**
-     * Get touch position relative to canvas (unclamped - allows free movement)
-     */
-    getTouchCoordinates(event: TouchEvent): { x: number; y: number } {
+    private clampToCanvas(point: CanvasPoint): CanvasPoint {
         const rect = this.overlayCanvas.getBoundingClientRect();
-        const touch = event.touches[0] || event.changedTouches[0];
         return {
-            x: touch.clientX - rect.left,
-            y: touch.clientY - rect.top
+            x: Math.max(0, Math.min(point.x, rect.width)),
+            y: Math.max(0, Math.min(point.y, rect.height))
         };
     }
 
-    /**
-     * Handle mouse down
-     */
-    private onMouseDown(event: MouseEvent): void {
+    private onPointerDown(event: PointerEvent): void {
+        if (!event.isPrimary) {
+            return;
+        }
+
+        if (event.pointerType === 'mouse' && event.button !== 0) {
+            return;
+        }
+
         event.preventDefault();
-        const pos = this.getCanvasCoordinates(event);
-        this.startDrawing(pos.x, pos.y);
-    }
 
-    /**
-     * Handle mouse move
-     */
-    private onMouseMove(event: MouseEvent): void {
-        if (!this.isDrawing) return;
-        event.preventDefault();
-        const pos = this.getCanvasCoordinates(event);
-        this.updateDrawing(pos.x, pos.y);
-    }
+        const point = this.clampToCanvas(this.getPointerCoordinates(event));
+        const rect = this.getSelectionRect();
+        const handle = rect ? this.getHandleAtPoint(point, rect) : null;
+        const isInsideRect = rect ? this.isPointInsideRect(point, rect) : false;
 
-    /**
-     * Handle mouse up
-     */
-    private onMouseUp(event: MouseEvent): void {
-        if (!this.isDrawing) return;
-        event.preventDefault();
-        const pos = this.getCanvasCoordinates(event);
-        this.finishDrawing(pos.x, pos.y);
-    }
+        this.activePointerId = event.pointerId;
+        this.overlayCanvas.setPointerCapture(event.pointerId);
+        this.interactionStartPoint = point;
+        this.interactionStartRect = rect;
 
-    /**
-     * Handle touch start
-     */
-    private onTouchStart(event: TouchEvent): void {
-        event.preventDefault();
-        const pos = this.getTouchCoordinates(event);
-        this.startDrawing(pos.x, pos.y);
-    }
-
-    /**
-     * Handle touch move
-     */
-    private onTouchMove(event: TouchEvent): void {
-        if (!this.isDrawing) return;
-        event.preventDefault();
-        const pos = this.getTouchCoordinates(event);
-        this.updateDrawing(pos.x, pos.y);
-    }
-
-    /**
-     * Handle touch end
-     */
-    private onTouchEnd(event: TouchEvent): void {
-        if (!this.isDrawing) return;
-        event.preventDefault();
-        const pos = this.getTouchCoordinates(event);
-        this.finishDrawing(pos.x, pos.y);
-    }
-
-    /**
-     * Start drawing bbox
-     */
-    private startDrawing(x: number, y: number): void {
-        this.isDrawing = true;
-        this.startX = x;
-        this.startY = y;
-        this.currentX = x;
-        this.currentY = y;
-
-        // Attach document-level events to track mouse even when outside canvas
-        document.addEventListener('mousemove', this.handleMouseMove);
-        document.addEventListener('mouseup', this.handleMouseUp);
-        document.addEventListener('touchmove', this.handleTouchMove, { passive: false });
-        document.addEventListener('touchend', this.handleTouchEnd);
-
-        // Clear previous selection
-        this.clear();
-    }
-
-    /**
-     * Update drawing bbox
-     */
-    private updateDrawing(x: number, y: number): void {
-        this.currentX = x;
-        this.currentY = y;
-
-        // Redraw
-        this.draw();
-
-        // Trigger change callback
-        if (this.onBboxChange) {
-            const bbox = this.getCanvasBbox();
-            const pdfBbox = this.canvasBboxToPdf(bbox);
-            this.onBboxChange(pdfBbox);
+        if (handle) {
+            this.interactionMode = 'resize';
+            this.activeHandle = handle;
+        } else if (isInsideRect) {
+            this.interactionMode = 'move';
+            this.activeHandle = null;
+        } else {
+            this.interactionMode = 'draw';
+            this.activeHandle = null;
+            this.currentBbox = null;
+            this.startX = point.x;
+            this.startY = point.y;
+            this.currentX = point.x;
+            this.currentY = point.y;
+            this.clearCanvas();
         }
     }
 
-    /**
-     * Finish drawing bbox
-     */
-    private finishDrawing(x: number, y: number): void {
-        this.currentX = x;
-        this.currentY = y;
-        this.isDrawing = false;
+    private onPointerMove(event: PointerEvent): void {
+        const point = this.clampToCanvas(this.getPointerCoordinates(event));
 
-        // Remove document-level events
-        document.removeEventListener('mousemove', this.handleMouseMove);
-        document.removeEventListener('mouseup', this.handleMouseUp);
-        document.removeEventListener('touchmove', this.handleTouchMove);
-        document.removeEventListener('touchend', this.handleTouchEnd);
+        if (this.activePointerId !== event.pointerId || this.interactionMode === null) {
+            this.updateCursor(point);
+            return;
+        }
 
-        // Get final bbox
-        const canvasBbox = this.getCanvasBbox();
-        const pdfBbox = this.canvasBboxToPdf(canvasBbox);
+        event.preventDefault();
+        this.updateInteraction(point);
+    }
 
-        // Store current bbox
-        this.currentBbox = pdfBbox;
+    private onPointerUp(event: PointerEvent): void {
+        if (this.activePointerId !== event.pointerId) {
+            return;
+        }
 
-        // Final draw
+        event.preventDefault();
+        const point = this.clampToCanvas(this.getPointerCoordinates(event));
+        this.finishInteraction(point);
+    }
+
+    private onPointerCancel(event: PointerEvent): void {
+        if (this.activePointerId !== event.pointerId) {
+            return;
+        }
+
+        this.finishInteraction(null);
+    }
+
+    private updateInteraction(point: CanvasPoint): void {
+        if (this.interactionMode === 'draw') {
+            this.currentX = point.x;
+            this.currentY = point.y;
+        } else if (this.interactionMode === 'resize' && this.interactionStartRect && this.activeHandle) {
+            this.applyCanvasRect(this.resizeRect(this.interactionStartRect, this.activeHandle, point));
+        } else if (this.interactionMode === 'move' && this.interactionStartRect && this.interactionStartPoint) {
+            const deltaX = point.x - this.interactionStartPoint.x;
+            const deltaY = point.y - this.interactionStartPoint.y;
+            this.applyCanvasRect(this.moveRect(this.interactionStartRect, deltaX, deltaY));
+        } else {
+            return;
+        }
+
         this.draw();
+        this.emitBboxChange();
+    }
 
-        // Trigger complete callback
+    private finishInteraction(point: CanvasPoint | null): void {
+        if (this.interactionMode !== null && point) {
+            this.updateInteraction(point);
+        }
+
+        if (this.interactionMode === null) {
+            this.releasePointerCapture();
+            this.resetInteraction();
+            return;
+        }
+
+        const rect = this.getCanvasBbox();
+        this.currentBbox = rect.width > 0 && rect.height > 0
+            ? this.canvasBboxToPdf(rect)
+            : null;
+
+        if (this.currentBbox) {
+            this.draw();
+        } else {
+            this.clearCanvas();
+        }
+
         if (this.onBboxComplete) {
-            this.onBboxComplete(pdfBbox);
+            this.onBboxComplete(this.currentBbox);
+        }
+
+        this.releasePointerCapture();
+        this.resetInteraction();
+        this.updateCursor(point ?? this.getFallbackPoint());
+    }
+
+    private releasePointerCapture(): void {
+        if (this.activePointerId !== null && this.overlayCanvas.hasPointerCapture(this.activePointerId)) {
+            this.overlayCanvas.releasePointerCapture(this.activePointerId);
         }
     }
 
-    /**
-     * Get current canvas bbox from drawing coordinates (clamped to canvas bounds)
-     */
+    private resetInteraction(): void {
+        this.activePointerId = null;
+        this.interactionMode = null;
+        this.activeHandle = null;
+        this.interactionStartPoint = null;
+        this.interactionStartRect = null;
+    }
+
+    private getFallbackPoint(): CanvasPoint {
+        return {
+            x: this.currentX,
+            y: this.currentY
+        };
+    }
+
+    private hasSelection(): boolean {
+        return this.currentBbox !== null;
+    }
+
+    private getSelectionRect(): CanvasRect | null {
+        if (!this.hasSelection()) {
+            return null;
+        }
+
+        return this.getCanvasBbox();
+    }
+
+    private applyCanvasRect(rect: CanvasRect): void {
+        this.startX = rect.x;
+        this.startY = rect.y;
+        this.currentX = rect.x + rect.width;
+        this.currentY = rect.y + rect.height;
+    }
+
+    private normalizeRect(x1: number, y1: number, x2: number, y2: number): CanvasRect {
+        return {
+            x: Math.min(x1, x2),
+            y: Math.min(y1, y2),
+            width: Math.abs(x2 - x1),
+            height: Math.abs(y2 - y1)
+        };
+    }
+
+    private getHandlePositions(rect: CanvasRect): Record<ResizeHandle, CanvasPoint> {
+        const insetX = Math.min(this.handleInset, rect.width / 2);
+        const insetY = Math.min(this.handleInset, rect.height / 2);
+
+        return {
+            'top-left': { x: rect.x + insetX, y: rect.y + insetY },
+            'top-right': { x: rect.x + rect.width - insetX, y: rect.y + insetY },
+            'bottom-left': { x: rect.x + insetX, y: rect.y + rect.height - insetY },
+            'bottom-right': { x: rect.x + rect.width - insetX, y: rect.y + rect.height - insetY }
+        };
+    }
+
+    private getHandleAtPoint(point: CanvasPoint, rect: CanvasRect): ResizeHandle | null {
+        const hitRadius = (this.handleSize / 2) + this.handleHitSlop;
+        const handles = this.getHandlePositions(rect);
+
+        for (const [handle, handlePoint] of Object.entries(handles) as Array<[ResizeHandle, CanvasPoint]>) {
+            if (
+                Math.abs(point.x - handlePoint.x) <= hitRadius &&
+                Math.abs(point.y - handlePoint.y) <= hitRadius
+            ) {
+                return handle;
+            }
+        }
+
+        return null;
+    }
+
+    private isPointInsideRect(point: CanvasPoint, rect: CanvasRect): boolean {
+        return (
+            point.x >= rect.x &&
+            point.x <= rect.x + rect.width &&
+            point.y >= rect.y &&
+            point.y <= rect.y + rect.height
+        );
+    }
+
+    private resizeRect(rect: CanvasRect, handle: ResizeHandle, point: CanvasPoint): CanvasRect {
+        const left = rect.x;
+        const right = rect.x + rect.width;
+        const top = rect.y;
+        const bottom = rect.y + rect.height;
+
+        switch (handle) {
+            case 'top-left':
+                return this.normalizeRect(point.x, point.y, right, bottom);
+            case 'top-right':
+                return this.normalizeRect(left, point.y, point.x, bottom);
+            case 'bottom-left':
+                return this.normalizeRect(point.x, top, right, point.y);
+            case 'bottom-right':
+                return this.normalizeRect(left, top, point.x, point.y);
+        }
+    }
+
+    private moveRect(rect: CanvasRect, deltaX: number, deltaY: number): CanvasRect {
+        const bounds = this.overlayCanvas.getBoundingClientRect();
+        const maxX = Math.max(0, bounds.width - rect.width);
+        const maxY = Math.max(0, bounds.height - rect.height);
+        const nextX = Math.max(0, Math.min(rect.x + deltaX, maxX));
+        const nextY = Math.max(0, Math.min(rect.y + deltaY, maxY));
+
+        return {
+            x: nextX,
+            y: nextY,
+            width: rect.width,
+            height: rect.height
+        };
+    }
+
+    private emitBboxChange(): void {
+        if (!this.onBboxChange) {
+            return;
+        }
+
+        this.onBboxChange(this.canvasBboxToPdf(this.getCanvasBbox()));
+    }
+
+    private updateCursor(point: CanvasPoint): void {
+        const rect = this.getSelectionRect();
+        if (!rect) {
+            this.overlayCanvas.style.cursor = 'crosshair';
+            return;
+        }
+
+        const handle = this.getHandleAtPoint(point, rect);
+        if (handle === 'top-left' || handle === 'bottom-right') {
+            this.overlayCanvas.style.cursor = 'nwse-resize';
+            return;
+        }
+
+        if (handle === 'top-right' || handle === 'bottom-left') {
+            this.overlayCanvas.style.cursor = 'nesw-resize';
+            return;
+        }
+
+        if (this.isPointInsideRect(point, rect)) {
+            this.overlayCanvas.style.cursor = 'move';
+            return;
+        }
+
+        this.overlayCanvas.style.cursor = 'crosshair';
+    }
+
     private getCanvasBbox(): CanvasRect {
         const rect = this.overlayCanvas.getBoundingClientRect();
         const canvasWidth = rect.width;
         const canvasHeight = rect.height;
 
-        // Get unclamped coordinates
         let x1 = Math.min(this.startX, this.currentX);
         let y1 = Math.min(this.startY, this.currentY);
         let x2 = Math.max(this.startX, this.currentX);
         let y2 = Math.max(this.startY, this.currentY);
 
-        // Clamp to canvas bounds
         x1 = Math.max(0, Math.min(x1, canvasWidth));
         y1 = Math.max(0, Math.min(y1, canvasHeight));
         x2 = Math.max(0, Math.min(x2, canvasWidth));
@@ -308,127 +423,98 @@ export class BBoxOverlay {
         };
     }
 
-    /**
-     * Convert canvas bbox to PDF bbox
-     */
     private canvasBboxToPdf(canvasBbox: CanvasRect): PDFBBox | null {
-        if (!this.pdfViewer) return null;
         return this.pdfViewer.canvasRectToPDFBbox(canvasBbox);
     }
 
-    /**
-     * Draw current selection
-     */
+    private clearCanvas(): void {
+        this.ctx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+    }
+
     private draw(): void {
-        // Clear overlay
-        this.clear();
+        this.clearCanvas();
 
-        // Get bbox rectangle
         const bbox = this.getCanvasBbox();
+        if (bbox.width <= 0 || bbox.height <= 0) {
+            return;
+        }
 
-        // Draw rectangle
         this.ctx.save();
         this.ctx.strokeStyle = this.strokeStyle;
         this.ctx.fillStyle = this.fillStyle;
         this.ctx.lineWidth = this.lineWidth;
         this.ctx.setLineDash(this.lineDash);
-
-        // Fill
         this.ctx.fillRect(bbox.x, bbox.y, bbox.width, bbox.height);
-
-        // Stroke
         this.ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height);
-
         this.ctx.restore();
 
-        // Draw corner handles if not currently drawing
-        if (!this.isDrawing) {
-            this.drawHandles(bbox);
-        }
+        this.drawHandles(bbox);
     }
 
-    /**
-     * Draw resize handles at corners
-     */
     private drawHandles(bbox: CanvasRect): void {
-        const handleSize = 8;
-        const handles = [
-            { x: bbox.x, y: bbox.y },                                    // Top-left
-            { x: bbox.x + bbox.width, y: bbox.y },                      // Top-right
-            { x: bbox.x, y: bbox.y + bbox.height },                     // Bottom-left
-            { x: bbox.x + bbox.width, y: bbox.y + bbox.height }         // Bottom-right
-        ];
+        const handles = Object.values(this.getHandlePositions(bbox));
 
         this.ctx.save();
-        this.ctx.fillStyle = '#fff';
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
         this.ctx.strokeStyle = this.strokeStyle;
-        this.ctx.lineWidth = 2;
+        this.ctx.lineWidth = 1.5;
 
-        handles.forEach(handle => {
+        for (const handle of handles) {
             this.ctx.fillRect(
-                handle.x - handleSize / 2,
-                handle.y - handleSize / 2,
-                handleSize,
-                handleSize
+                handle.x - this.handleSize / 2,
+                handle.y - this.handleSize / 2,
+                this.handleSize,
+                this.handleSize
             );
             this.ctx.strokeRect(
-                handle.x - handleSize / 2,
-                handle.y - handleSize / 2,
-                handleSize,
-                handleSize
+                handle.x - this.handleSize / 2,
+                handle.y - this.handleSize / 2,
+                this.handleSize,
+                this.handleSize
             );
-        });
+        }
 
         this.ctx.restore();
     }
 
-    /**
-     * Clear overlay
-     */
     clear(): void {
-        this.ctx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+        this.currentBbox = null;
+        this.startX = 0;
+        this.startY = 0;
+        this.currentX = 0;
+        this.currentY = 0;
+        this.resetInteraction();
+        this.clearCanvas();
+        this.overlayCanvas.style.cursor = 'crosshair';
     }
 
-    /**
-     * Set bbox and draw it
-     */
     setBbox(pdfBbox: PDFBBox | null): void {
-        if (!this.pdfViewer || !pdfBbox) {
-            this.currentBbox = null;
+        if (!pdfBbox) {
             this.clear();
             return;
         }
 
         this.currentBbox = pdfBbox;
 
-        // Convert to canvas coordinates and draw
         const canvasRect = this.pdfViewer.pdfBboxToCanvasRect(pdfBbox);
-
-        // Set drawing coordinates
         this.startX = canvasRect.x;
         this.startY = canvasRect.y;
         this.currentX = canvasRect.x + canvasRect.width;
         this.currentY = canvasRect.y + canvasRect.height;
 
-        // Draw
         this.draw();
     }
 
-    /**
-     * Get current bbox in PDF coordinates
-     */
     getBbox(): PDFBBox | null {
         return this.currentBbox;
     }
 }
 
-/**
- * Create and export a bbox overlay instance
- */
 export function createBBoxOverlay(overlayCanvasId: string, pdfViewer: PDFViewer, options: BBoxOverlayOptions = {}): BBoxOverlay {
     const overlayCanvas = document.getElementById(overlayCanvasId) as HTMLCanvasElement;
     if (!overlayCanvas) {
         throw new Error(`Canvas element with id "${overlayCanvasId}" not found`);
     }
+
     return new BBoxOverlay(overlayCanvas, pdfViewer, options);
 }

@@ -10,7 +10,7 @@ import init, {
     cropPdf,
     detectBbox,
     WasmCropOptions
-} from '../../pkg/pdfcrop';
+} from '../../pkg/pdfcrop_web';
 
 import { PDFViewer, createPDFViewer } from './pdf-viewer';
 import { BBoxOverlay, createBBoxOverlay } from './bbox-overlay';
