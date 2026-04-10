@@ -108,3 +108,8 @@ Based on upstream metadata and included license text, this experiment is built f
 3. this snapshot includes the upstream MIT license text at the repository root and in the example app directory.
 
 This repository is intentionally prepared without vendored dependency trees, build outputs, installers, or standalone binaries that can be regenerated.
+## Desktop usability improvements — draggable & resizable crop corners
+
+- Crop handles were made larger and inset so they remain visible at page edges, improving hit targets for mouse, touch, and pen users.
+- The selection overlay now uses PointerEvents (src/js/bbox-overlay.ts) providing unified draw/resize/move modes and robust corner-handle hit-testing.
+- This improves usability and accessibility while preserving the existing WASM crop engine and file I/O.
