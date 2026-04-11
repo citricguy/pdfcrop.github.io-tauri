@@ -169,6 +169,15 @@ npm run desktop:build
 
 That is the exact build flow that succeeded for this repo during verification.
 
+If PowerShell blocks `npm` with an `npm.ps1` execution-policy error, use `npm.cmd` instead:
+
+```powershell
+git clone https://github.com/citricguy/pdfcrop.github.io-tauri.git
+cd pdfcrop.github.io-tauri\pdfcrop\examples\pdfcrop.github.io
+npm.cmd install
+npm.cmd run desktop:build
+```
+
 ## What the build command actually does
 
 When you run:
