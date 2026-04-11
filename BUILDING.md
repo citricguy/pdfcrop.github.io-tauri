@@ -33,6 +33,8 @@ src-tauri\target\release\bundle\msi\PDFCrop_0.1.0_x64_en-US.msi
 
 Install these in **PowerShell as Administrator**.
 
+After you install something, it is often safest to **close that terminal and open a new one** before running the check commands. New terminals pick up updated `PATH` entries and other environment changes from the installer.
+
 ### 1. Git
 
 ```powershell
@@ -61,6 +63,14 @@ npm -v
 ```
 
 Good result: `node -v` should show `v22...` or `v24...`
+
+If `npm -v` fails in PowerShell with a message about `npm.ps1`, use this instead:
+
+```powershell
+npm.cmd -v
+```
+
+Some Windows systems block PowerShell script launch by policy. `npm.cmd` usually works without changing that setting.
 
 ### 3. Rust and Cargo
 
@@ -96,7 +106,23 @@ You should see:
 wasm32-unknown-unknown
 ```
 
-### 5. `wasm-pack`
+### 5. Visual Studio 2022 Build Tools
+
+This is the Windows native compiler toolchain Rust uses on Windows. Install this **before** `wasm-pack` and before the Tauri CLI, otherwise Cargo may fail with `link.exe not found`.
+
+```powershell
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+```
+
+If that command gives you trouble, install it manually from Visual Studio Build Tools and make sure **Desktop development with C++** is included.
+
+After install, close the terminal and open a new one, then check:
+
+```powershell
+where.exe link
+```
+
+### 6. `wasm-pack`
 
 ```powershell
 cargo install wasm-pack
@@ -108,7 +134,7 @@ Check it:
 wasm-pack --version
 ```
 
-### 6. Tauri CLI 2.x
+### 7. Tauri CLI 2.x
 
 This repo uses Tauri 2. Install the Cargo CLI for Tauri 2:
 
@@ -121,16 +147,6 @@ Check it:
 ```powershell
 cargo tauri -V
 ```
-
-### 7. Visual Studio 2022 Build Tools
-
-This is the Windows native compiler toolchain Tauri and Rust use to produce the desktop `.exe`.
-
-```powershell
-winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
-```
-
-If that command gives you trouble, install it manually from Visual Studio Build Tools and make sure **Desktop development with C++** is included.
 
 ### 8. Microsoft Edge WebView2 Runtime
 
@@ -202,10 +218,11 @@ Run these and make sure they all work:
 ```powershell
 git --version
 node -v
-npm -v
+npm.cmd -v
 rustc -V
 cargo -V
 rustup target list --installed
+where.exe link
 wasm-pack --version
 cargo tauri -V
 ```
