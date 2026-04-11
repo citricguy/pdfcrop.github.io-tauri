@@ -53,26 +53,29 @@ The desktop app still uses the upstream `pdfcrop` Rust crate compiled to WebAsse
 
 That means this experiment stayed on the lowest-risk path: preserve the existing crop behavior, change the platform wrapper.
 
-## Build guide
+## Fastest path to a Windows EXE
 
-From the frozen source tree:
+If you already have the required tools installed, these are the exact commands:
 
-```bash
-cd pdfcrop/examples/pdfcrop.github.io
+```powershell
+cd pdfcrop\examples\pdfcrop.github.io
 npm install
-```
-
-### Development mode
-
-```bash
-npm run desktop:dev
-```
-
-### Production build
-
-```bash
 npm run desktop:build
 ```
+
+The built app EXE ends up here:
+
+```text
+pdfcrop\examples\pdfcrop.github.io\src-tauri\target\release\pdfcrop-desktop.exe
+```
+
+The Windows installer EXE ends up here:
+
+```text
+pdfcrop\examples\pdfcrop.github.io\src-tauri\target\release\bundle\nsis\PDFCrop_0.1.0_x64-setup.exe
+```
+
+For the full beginner-friendly checklist, exact install commands, version checks, and common failure fixes, see [BUILDING.md](BUILDING.md).
 
 ## Windows requirements
 
@@ -83,11 +86,12 @@ npm run desktop:build
 
 ### To rebuild from source
 
-1. Node.js and npm
+1. Node.js LTS (`v22` or newer LTS recommended)
 2. Rust + rustup
-3. `wasm-pack`
-4. Tauri CLI
-5. Visual Studio 2022 Build Tools with C++ tooling
+3. Rust target `wasm32-unknown-unknown`
+4. `wasm-pack`
+5. Tauri CLI 2.x
+6. Visual Studio 2022 Build Tools with C++ tooling
 
 ## Differences from upstream
 

@@ -35,6 +35,34 @@ npm run build
 
 Visit `http://localhost:8080` to use the app.
 
+## Want the Windows EXE?
+
+If your goal is to build the Windows desktop app from this snapshot, use the root-level beginner guide at:
+
+```text
+..\..\..\BUILDING.md
+```
+
+The short version is:
+
+```powershell
+cd pdfcrop\examples\pdfcrop.github.io
+npm install
+npm run desktop:build
+```
+
+Your standalone app EXE will be here:
+
+```text
+src-tauri\target\release\pdfcrop-desktop.exe
+```
+
+Your Windows installer EXE will be here:
+
+```text
+src-tauri\target\release\bundle\nsis\PDFCrop_0.1.0_x64-setup.exe
+```
+
 ## How It Works
 
 1. **Upload PDF** - Drag and drop or select a PDF file
@@ -86,15 +114,18 @@ npm run format
 
 Use the main `pdfcrop` repository with this example checked out at `examples/pdfcrop.github.io`.
 
+For full install commands and version checks, use the root-level `BUILDING.md` guide.
+
 ### Prerequisites
 
 1. Git
-2. Node.js and npm (Node 22 LTS or newer recommended)
+2. Node.js and npm (Node 22 LTS or newer LTS recommended)
 3. Rust + rustup
-4. `wasm-pack`
-5. Tauri CLI
-6. Visual Studio 2022 Build Tools with C++ tooling
-7. Microsoft Edge WebView2 Runtime
+4. Rust target `wasm32-unknown-unknown`
+5. `wasm-pack`
+6. Tauri CLI 2.x
+7. Visual Studio 2022 Build Tools with C++ tooling
+8. Microsoft Edge WebView2 Runtime
 
 ### Development
 
