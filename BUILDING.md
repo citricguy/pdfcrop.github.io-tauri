@@ -1,175 +1,19 @@
-# Windows Build Guide
+# Desktop Build Guide (Windows, Linux, macOS)
 
-This guide is for one goal: **start from a fresh Windows machine and end up with a working `.exe` build of this repo**.
+This guide is for one goal: **build the native Tauri desktop app from this repo on the host OS you are using**.
 
-If you only want the shortest version, use this once your tools are installed:
+## Short version
 
-```powershell
+Once your tools are installed, the project build flow is the same on Windows, Linux, and macOS:
+
+```bash
 git clone https://github.com/citricguy/pdfcrop.github.io-tauri.git
-cd pdfcrop.github.io-tauri\pdfcrop\examples\pdfcrop.github.io
+cd pdfcrop.github.io-tauri/pdfcrop/examples/pdfcrop.github.io
 npm install
 npm run desktop:build
 ```
 
-The main app `.exe` ends up here:
-
-```text
-src-tauri\target\release\pdfcrop-desktop.exe
-```
-
-The Windows installer `.exe` ends up here:
-
-```text
-src-tauri\target\release\bundle\nsis\PDFCrop_0.1.0_x64-setup.exe
-```
-
-The MSI installer ends up here:
-
-```text
-src-tauri\target\release\bundle\msi\PDFCrop_0.1.0_x64_en-US.msi
-```
-
-## What you need installed
-
-Install these in **PowerShell as Administrator**.
-
-After you install something, it is often safest to **close that terminal and open a new one** before running the check commands. New terminals pick up updated `PATH` entries and other environment changes from the installer.
-
-### 1. Git
-
-```powershell
-winget install --id Git.Git -e
-```
-
-Check it:
-
-```powershell
-git --version
-```
-
-### 2. Node.js LTS
-
-Use **Node 22 LTS or newer LTS**. Do not use Node 21 for this project. The app installed on Node 21 in testing, but Vite warned that 21 is outside the supported range.
-
-```powershell
-winget install --id OpenJS.NodeJS.LTS -e
-```
-
-Check it:
-
-```powershell
-node -v
-npm -v
-```
-
-Good result: `node -v` should show `v22...` or `v24...`
-
-If `npm -v` fails in PowerShell with a message about `npm.ps1`, use this instead:
-
-```powershell
-npm.cmd -v
-```
-
-Some Windows systems block PowerShell script launch by policy. `npm.cmd` usually works without changing that setting.
-
-### 3. Rust and Cargo
-
-```powershell
-winget install --id Rustlang.Rustup -e
-```
-
-Close PowerShell, open a new one, then check:
-
-```powershell
-rustc -V
-cargo -V
-rustup -V
-```
-
-### 4. Rust WebAssembly target
-
-This project builds the PDF crop engine to WebAssembly before Tauri packages the desktop app.
-
-```powershell
-rustup target add wasm32-unknown-unknown
-```
-
-Check it:
-
-```powershell
-rustup target list --installed
-```
-
-You should see:
-
-```text
-wasm32-unknown-unknown
-```
-
-### 5. Visual Studio 2022 Build Tools
-
-This is the Windows native compiler toolchain Rust uses on Windows. Install this **before** `wasm-pack` and before the Tauri CLI, otherwise Cargo may fail with `link.exe not found`.
-
-```powershell
-winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
-```
-
-If that command gives you trouble, install it manually from Visual Studio Build Tools and make sure **Desktop development with C++** is included.
-
-After install, close the terminal and open a new one, then check:
-
-```powershell
-where.exe link
-```
-
-### 6. `wasm-pack`
-
-```powershell
-cargo install wasm-pack
-```
-
-Check it:
-
-```powershell
-wasm-pack --version
-```
-
-### 7. Tauri CLI 2.x
-
-This repo uses Tauri 2. Install the Cargo CLI for Tauri 2:
-
-```powershell
-cargo install tauri-cli --version "^2"
-```
-
-Check it:
-
-```powershell
-cargo tauri -V
-```
-
-### 8. Microsoft Edge WebView2 Runtime
-
-Tauri apps on Windows need WebView2 to run.
-
-```powershell
-winget install --id Microsoft.EdgeWebView2Runtime -e
-```
-
-## Fresh clone to EXE
-
-Open a normal PowerShell window and run:
-
-```powershell
-git clone https://github.com/citricguy/pdfcrop.github.io-tauri.git
-cd pdfcrop.github.io-tauri\pdfcrop\examples\pdfcrop.github.io
-npm install
-npm run desktop:build
-```
-
-That is the exact build flow that succeeded for this repo during verification.
-
-If PowerShell blocks `npm` with an `npm.ps1` execution-policy error, use `npm.cmd` instead:
+If you are in Windows PowerShell and `npm` fails with an `npm.ps1` execution-policy error, use `npm.cmd` for the commands you type manually in that shell:
 
 ```powershell
 git clone https://github.com/citricguy/pdfcrop.github.io-tauri.git
@@ -178,120 +22,136 @@ npm.cmd install
 npm.cmd run desktop:build
 ```
 
-## What the build command actually does
+That Windows fallback is only for manual terminal commands. The Tauri config in this repo intentionally uses plain `npm` so the same source tree works on Windows, Linux, and macOS.
 
-When you run:
+## Important host OS note
 
-```powershell
-npm run desktop:build
-```
+Tauri desktop bundles are host-platform builds:
 
-it triggers:
+| Host OS | Typical release outputs |
+| --- | --- |
+| Windows | `.exe`, NSIS installer, MSI installer |
+| macOS | `.app`, `.dmg` |
+| Linux | `AppImage`, `.deb`, `.rpm` depending on installed bundlers |
 
-1. `cargo tauri build`
-2. Tauri runs the app's frontend build first
-3. The frontend build runs `wasm-pack build --target web --release --out-dir pkg`
-4. TypeScript and Vite build the web UI into `dist`
-5. Tauri compiles the Windows desktop app and creates Windows bundles
+Build on Windows for Windows bundles, on macOS for macOS bundles, and on Linux for Linux bundles. This guide does not cover cross-compiling desktop installers between operating systems.
 
-## Where your built files will be
+## Shared requirements on every OS
 
-After a successful build, look here:
+Install these first:
 
-### Standalone app EXE
+1. Git
+2. Node.js LTS (`v22` or newer LTS recommended)
+3. Rust + rustup
+4. Rust target `wasm32-unknown-unknown`
+5. `wasm-pack`
+6. Tauri CLI 2.x
 
-```text
-pdfcrop\examples\pdfcrop.github.io\src-tauri\target\release\pdfcrop-desktop.exe
-```
+Check them:
 
-This is the raw application executable.
-
-### Installer EXE
-
-```text
-pdfcrop\examples\pdfcrop.github.io\src-tauri\target\release\bundle\nsis\PDFCrop_0.1.0_x64-setup.exe
-```
-
-This is the normal Windows installer `.exe`.
-
-### MSI installer
-
-```text
-pdfcrop\examples\pdfcrop.github.io\src-tauri\target\release\bundle\msi\PDFCrop_0.1.0_x64_en-US.msi
-```
-
-## "Did I install everything correctly?" checklist
-
-Run these and make sure they all work:
-
-```powershell
+```bash
 git --version
 node -v
-npm.cmd -v
+npm -v
 rustc -V
 cargo -V
+rustup -V
 rustup target list --installed
-where.exe link
 wasm-pack --version
 cargo tauri -V
 ```
 
-If any of those fail, fix that tool before trying the build.
+Good result: `node -v` should show `v22...` or newer LTS.
 
-## First build expectations
+If `rustup target list --installed` does not include `wasm32-unknown-unknown`, add it:
 
-- The first build is slow. Several minutes is normal.
-- Rust will compile a lot of dependencies the first time.
-- The build may print Rust warnings from the upstream `pdfcrop` crate. Those warnings did **not** block the build in verification.
-- Vite may warn about large chunks. That also did **not** block the build in verification.
-
-## If the build fails
-
-### Error about `cl.exe`, linker tools, or MSVC
-
-Visual Studio Build Tools are missing or incomplete. Reinstall them and make sure the C++ workload is included.
-
-### Error about `wasm32-unknown-unknown`
-
-Run:
-
-```powershell
+```bash
 rustup target add wasm32-unknown-unknown
 ```
 
-### Error that `wasm-pack` is not found
+Install the project-specific Rust tools with:
 
-Run:
-
-```powershell
+```bash
 cargo install wasm-pack
-```
-
-### Error that `cargo tauri` is not found
-
-Run:
-
-```powershell
 cargo install tauri-cli --version "^2"
 ```
 
-### Node version warning or strange frontend build issues
+## Host OS prerequisites
 
-Use Node LTS:
+### Windows
 
-```powershell
-winget install --id OpenJS.NodeJS.LTS -e
-```
-
-Then reopen PowerShell and check:
+Install the native Windows toolchain and runtime:
 
 ```powershell
-node -v
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+winget install --id Microsoft.EdgeWebView2Runtime -e
 ```
 
-## Optional: run the desktop app without making a release build
+If the Build Tools installer gives you trouble, install it manually and make sure **Desktop development with C++** is included.
 
-If you just want to launch it locally in dev mode:
+Check the linker:
+
+```powershell
+where.exe link
+```
+
+### macOS
+
+For desktop-only Tauri builds, install Xcode Command Line Tools:
+
+```bash
+xcode-select --install
+```
+
+If you choose to install the full Xcode app instead, open it once after installation so it can finish setup.
+
+Check the tools:
+
+```bash
+xcode-select -p
+clang --version
+```
+
+### Linux
+
+Linux needs the Tauri system libraries for your distribution. On Debian or Ubuntu, install:
+
+```bash
+sudo apt update
+sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+For Fedora, Arch, openSUSE, NixOS, or other distributions, use the matching package list from the official Tauri prerequisites page:
+
+```text
+https://v2.tauri.app/start/prerequisites/
+```
+
+## Fresh clone to native desktop build
+
+### Windows PowerShell
+
+```powershell
+git clone https://github.com/citricguy/pdfcrop.github.io-tauri.git
+cd pdfcrop.github.io-tauri\pdfcrop\examples\pdfcrop.github.io
+npm install
+npm run desktop:build
+```
+
+If PowerShell blocks `npm`, retry those last two commands with `npm.cmd`.
+
+### macOS or Linux shell
+
+```bash
+git clone https://github.com/citricguy/pdfcrop.github.io-tauri.git
+cd pdfcrop.github.io-tauri/pdfcrop/examples/pdfcrop.github.io
+npm install
+npm run desktop:build
+```
+
+## Optional: run the desktop app in development mode
+
+### Windows PowerShell
 
 ```powershell
 cd pdfcrop.github.io-tauri\pdfcrop\examples\pdfcrop.github.io
@@ -299,13 +159,118 @@ npm install
 npm run desktop:dev
 ```
 
-## Bottom line
+### macOS or Linux shell
 
-If your goal is simply "build this repo and get a Windows EXE", the only commands you should need after installing the prerequisites are:
+```bash
+cd pdfcrop.github.io-tauri/pdfcrop/examples/pdfcrop.github.io
+npm install
+npm run desktop:dev
+```
+
+The dev command rebuilds the WASM package first, starts Vite on `127.0.0.1:8080`, and then launches the Tauri window.
+
+## What the build command does
+
+When you run:
+
+```bash
+npm run desktop:build
+```
+
+it triggers:
+
+1. `cargo tauri build`
+2. Tauri runs the app frontend build first
+3. The frontend build runs `wasm-pack build --target web --release --out-dir pkg`
+4. TypeScript and Vite build the web UI into `dist`
+5. Tauri compiles the native desktop app and creates host-OS bundles
+
+## Where the built files will be
+
+After a successful build, look under `pdfcrop/examples/pdfcrop.github.io/src-tauri/target/release/`.
+
+| Host OS | Main output locations |
+| --- | --- |
+| Windows | `pdfcrop-desktop.exe`, `bundle/nsis/`, `bundle/msi/` |
+| macOS | `bundle/macos/PDFCrop.app`, `bundle/dmg/` |
+| Linux | `bundle/appimage/`, `bundle/deb/`, `bundle/rpm/` |
+
+Linux package types depend on what your host system supports. Windows and macOS bundle names also include version and architecture in the generated filenames.
+
+## First build expectations
+
+- The first build is slow. Several minutes is normal.
+- Rust will compile a lot of dependencies the first time.
+- The build may print Rust warnings from the upstream `pdfcrop` crate without failing the build.
+- Vite may warn about large chunks without failing the build.
+
+## If the build fails
+
+### Error about `npm.ps1` on Windows
+
+Use `npm.cmd` for the commands you type in that PowerShell session:
 
 ```powershell
-git clone https://github.com/citricguy/pdfcrop.github.io-tauri.git
-cd pdfcrop.github.io-tauri\pdfcrop\examples\pdfcrop.github.io
+npm.cmd install
+npm.cmd run desktop:build
+```
+
+Do not change `src-tauri/tauri.conf.json` back to `npm.cmd`; plain `npm` is what keeps the Tauri build hooks portable across Windows, Linux, and macOS.
+
+### Error about `cl.exe`, linker tools, or MSVC on Windows
+
+Visual Studio Build Tools are missing or incomplete. Reinstall them and make sure the C++ workload is included.
+
+### Error about missing Xcode tools on macOS
+
+Install or repair Command Line Tools:
+
+```bash
+xcode-select --install
+```
+
+### Error about missing WebKitGTK or appindicator packages on Linux
+
+Install the Tauri system libraries for your distribution, then rerun the build. Debian and Ubuntu users can use the package list above.
+
+### Error about `wasm32-unknown-unknown`
+
+Run:
+
+```bash
+rustup target add wasm32-unknown-unknown
+```
+
+### Error that `wasm-pack` is not found
+
+Run:
+
+```bash
+cargo install wasm-pack
+```
+
+### Error that `cargo tauri` is not found
+
+Run:
+
+```bash
+cargo install tauri-cli --version "^2"
+```
+
+### Node version warning or strange frontend build issues
+
+Use Node LTS `v22` or newer LTS, then reopen your terminal and check:
+
+```bash
+node -v
+```
+
+## Bottom line
+
+After the prerequisites are installed, the build command you want is:
+
+```bash
+cd pdfcrop.github.io-tauri/pdfcrop/examples/pdfcrop.github.io
 npm install
 npm run desktop:build
 ```

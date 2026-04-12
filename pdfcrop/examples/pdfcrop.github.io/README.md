@@ -1,6 +1,6 @@
 # pdfcrop Web App
 
-This example now supports both the original browser workflow and a Windows desktop shell built with Tauri.
+This example now supports both the original browser workflow and a cross-platform desktop shell built with Tauri.
 
 A WebAssembly-powered PDF cropping tool that runs entirely in your browser. No server uploads, 100% private and secure.
 
@@ -35,9 +35,9 @@ npm run build
 
 Visit `http://localhost:8080` to use the app.
 
-## Want the Windows EXE?
+## Want the desktop app?
 
-If your goal is to build the Windows desktop app from this snapshot, use the root-level beginner guide at:
+If your goal is to build the desktop app from this snapshot on Windows, Linux, or macOS, use the root-level build guide at:
 
 ```text
 ..\..\..\BUILDING.md
@@ -45,23 +45,21 @@ If your goal is to build the Windows desktop app from this snapshot, use the roo
 
 The short version is:
 
-```powershell
-cd pdfcrop\examples\pdfcrop.github.io
+```bash
+cd pdfcrop/examples/pdfcrop.github.io
 npm install
 npm run desktop:build
 ```
 
-Your standalone app EXE will be here:
+If Windows PowerShell blocks `npm` with an `npm.ps1` execution-policy error, use `npm.cmd` for the commands you type manually in that shell. The Tauri config itself should stay on plain `npm` for portability.
 
-```text
-src-tauri\target\release\pdfcrop-desktop.exe
-```
+Your output bundle depends on the OS you build on:
 
-Your Windows installer EXE will be here:
-
-```text
-src-tauri\target\release\bundle\nsis\PDFCrop_0.1.0_x64-setup.exe
-```
+| Host OS | Typical output |
+| --- | --- |
+| Windows | `src-tauri\target\release\pdfcrop-desktop.exe` plus installers under `bundle\nsis` and `bundle\msi` |
+| macOS | `src-tauri/target/release/bundle/macos/PDFCrop.app` and a DMG under `bundle/dmg` |
+| Linux | packages under `src-tauri/target/release/bundle/`, typically `appimage`, `deb`, or `rpm` |
 
 ## How It Works
 
@@ -100,17 +98,17 @@ npm run build
 # Preview production build
 npm run preview
 
-# Run the Windows desktop app in development mode
+# Run the desktop app in development mode
 npm run desktop:dev
 
-# Build the Windows desktop distributables
+# Build the desktop distributables
 npm run desktop:build
 
 # Format code
 npm run format
 ```
 
-## Windows desktop setup
+## Desktop setup
 
 Use the main `pdfcrop` repository with this example checked out at `examples/pdfcrop.github.io`.
 
@@ -124,8 +122,10 @@ For full install commands and version checks, use the root-level `BUILDING.md` g
 4. Rust target `wasm32-unknown-unknown`
 5. `wasm-pack`
 6. Tauri CLI 2.x
-7. Visual Studio 2022 Build Tools with C++ tooling
-8. Microsoft Edge WebView2 Runtime
+7. Host OS native prerequisites:
+   - Windows: Visual Studio 2022 Build Tools with C++ tooling and Microsoft Edge WebView2 Runtime
+   - macOS: Xcode Command Line Tools
+   - Linux: the Tauri system libraries for your distribution
 
 ### Development
 
@@ -136,28 +136,29 @@ cd examples/pdfcrop.github.io
 # Install frontend dependencies
 npm install
 
-# Launch the Windows desktop app
+# Launch the desktop app
 npm run desktop:dev
 ```
 
 The dev script rebuilds the WASM package first, starts Vite on `127.0.0.1:8080`, and then launches the Tauri window.
 
-## Windows build and release
+## Desktop build and release
 
 ```bash
 # From examples/pdfcrop.github.io
 npm run desktop:build
 ```
 
-The build produces Windows installer artifacts under:
+The build produces native host-OS artifacts under `src-tauri/target/release/bundle/`.
 
-- `src-tauri\target\release\bundle\msi`
-- `src-tauri\target\release\bundle\nsis`
+- Windows typically produces `msi` and `nsis`
+- macOS typically produces `macos` and `dmg`
+- Linux typically produces `appimage`, `deb`, or `rpm`
 
 ## Current desktop status
 
 - Click-to-browse open works in desktop mode.
-- Drag and drop works in desktop mode on Windows.
+- Drag and drop works in desktop mode.
 - Native save works in desktop mode.
 
 ## Deployment

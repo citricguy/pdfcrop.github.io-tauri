@@ -1,6 +1,6 @@
-# PDFCrop Windows Desktop Experiment
+# PDFCrop Desktop Experiment
 
-This repository is a **frozen experiment snapshot** based on the upstream `pdfcrop` project. It exists to capture one careful Windows desktop packaging pass, not to replace the original project.
+This repository is a **frozen experiment snapshot** based on the upstream `pdfcrop` project. It exists to capture one careful desktop packaging pass, not to replace the original project.
 
 **All real credit belongs to the original authors and contributors.** This snapshot makes no claim of original authorship over the PDF crop engine, the web app, or the project architecture.
 
@@ -24,13 +24,13 @@ This repository is only a packaged experiment around that existing work. It shou
 
 ## What this experiment changed
 
-The upstream source tree is preserved under `pdfcrop/`, and this experiment adds only the minimum Windows desktop layer needed to validate the concept:
+The upstream source tree is preserved under `pdfcrop/`, and this experiment adds only the minimum desktop layer needed to validate the concept:
 
 1. kept the original Rust/WASM crop pipeline,
 2. added a Tauri 2 desktop shell,
 3. added native desktop open/save behavior,
-4. fixed desktop drag and drop on Windows,
-5. added a smaller size-focused standalone EXE build profile.
+4. fixed desktop drag and drop in the desktop shell,
+5. added a smaller size-focused desktop build profile.
 
 ## Important scope note
 
@@ -47,51 +47,49 @@ Nested upstream Git histories were removed on purpose so this repository can be 
 
 The desktop app still uses the upstream `pdfcrop` Rust crate compiled to WebAssembly for crop execution. Tauri is used only for:
 
-1. the Windows desktop window,
+1. the desktop window,
 2. native file dialogs and filesystem access,
 3. packaging and distribution.
 
 That means this experiment stayed on the lowest-risk path: preserve the existing crop behavior, change the platform wrapper.
 
-## Fastest path to a Windows EXE
+## Fastest path to a desktop build
 
-If you already have the required tools installed, these are the exact commands:
+If you already have the required tools installed, these are the exact commands on Windows, Linux, and macOS:
 
-```powershell
-cd pdfcrop\examples\pdfcrop.github.io
+```bash
+cd pdfcrop/examples/pdfcrop.github.io
 npm install
 npm run desktop:build
 ```
 
-The built app EXE ends up here:
+If PowerShell blocks `npm` with an `npm.ps1` execution-policy error, use `npm.cmd` for the commands you type manually in that terminal. The Tauri config intentionally uses plain `npm` so the same repo works on Windows, Linux, and macOS.
 
-```text
-pdfcrop\examples\pdfcrop.github.io\src-tauri\target\release\pdfcrop-desktop.exe
-```
+The release outputs depend on the host OS you build on:
 
-The Windows installer EXE ends up here:
+| Host OS | Primary output |
+| --- | --- |
+| Windows | `pdfcrop\examples\pdfcrop.github.io\src-tauri\target\release\pdfcrop-desktop.exe` plus installers under `bundle\nsis` and `bundle\msi` |
+| macOS | `pdfcrop/examples/pdfcrop.github.io/src-tauri/target/release/bundle/macos/PDFCrop.app` and a DMG under `bundle/dmg` |
+| Linux | App bundles under `pdfcrop/examples/pdfcrop.github.io/src-tauri/target/release/bundle/`, typically `appimage`, `deb`, or `rpm` depending on host tooling |
 
-```text
-pdfcrop\examples\pdfcrop.github.io\src-tauri\target\release\bundle\nsis\PDFCrop_0.1.0_x64-setup.exe
-```
+Build on the same OS you want to package for. For the full prerequisite checklist, OS-specific setup notes, version checks, and common failure fixes, see [BUILDING.md](BUILDING.md).
 
-For the full beginner-friendly checklist, exact install commands, version checks, and common failure fixes, see [BUILDING.md](BUILDING.md).
+## Desktop build requirements
 
-## Windows requirements
-
-### To run the built app
-
-1. Windows 10 or Windows 11, 64-bit
-2. Microsoft Edge WebView2 Runtime
-
-### To rebuild from source
+### Common requirements
 
 1. Node.js LTS (`v22` or newer LTS recommended)
 2. Rust + rustup
 3. Rust target `wasm32-unknown-unknown`
 4. `wasm-pack`
 5. Tauri CLI 2.x
-6. Visual Studio 2022 Build Tools with C++ tooling
+
+### Host OS requirements
+
+1. **Windows**: Visual Studio 2022 Build Tools with C++ tooling and Microsoft Edge WebView2 Runtime
+2. **macOS**: Xcode Command Line Tools
+3. **Linux**: the Tauri system libraries required by your distribution
 
 ## Differences from upstream
 
@@ -99,7 +97,7 @@ Compared with the upstream web example, this snapshot:
 
 1. adds Tauri desktop packaging,
 2. adds native desktop file open/save support,
-3. enables drag and drop in the Windows desktop app,
+3. enables drag and drop in the desktop app,
 4. changes the desktop release profile to reduce EXE size,
 5. keeps the original WASM crop engine instead of replacing it with native Tauri crop commands.
 
