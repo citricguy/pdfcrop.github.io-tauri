@@ -19,6 +19,7 @@ The upstream source and metadata attribute this work to:
 
 1. **Wuqiong Zhao (Teddy van Jerry)** - named author in the main `pdfcrop` crate metadata
 2. **pdfcrop contributors** - contributor attribution used throughout the web app and project manifests
+3. **Miles Wolbe @ tinyapps.org** - contributed the cross-platform `npm` change enabling macOS and Linux builds; writeup: https://tinyapps.org/blog/crop-pdfs-browser-windows.html
 
 This repository is only a packaged experiment around that existing work. It should not be interpreted as transferring authorship or credit away from the upstream project and contributors.
 
